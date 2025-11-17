@@ -14,7 +14,7 @@
       ansible.builtin.setup:
       
     - name: Update apt cache
-      apt:
+      ansible.builtin.apt:
         update_cache: yes
 
     - name: Install vsftpd package for Ubuntu-based systems
@@ -178,4 +178,5 @@
     - name: reload firewalld
       service:
         name: firewalld
+
         state: reloaded
