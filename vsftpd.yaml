@@ -1,0 +1,181 @@
+---
+- hosts: all
+  become: yes
+  become_method: sudo
+  become_user: root
+  
+  vars:
+    ftp_user: "mathson"
+    ftp_root: "/home/mathson/ftp"
+    ftp_upload: "/home/mathson/ftp/upload"
+    
+  tasks:
+    - name: Gather facts
+      ansible.builtin.setup:
+      
+    - name: Update apt cache
+      apt:
+        update_cache: yes
+
+    - name: Install vsftpd package for Ubuntu-based systems
+      ansible.builtin.apt:
+        name: vsftpd
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    - name: Deploy secure vsftpd configuration
+      copy:
+        dest: /etc/vsftpd.conf
+        content: |
+          listen=YES
+          listen_ipv6=NO
+
+          anonymous_enable=NO
+          local_enable=YES
+          write_enable=YES
+          local_umask=022
+
+          dirmessage_enable=YES
+          use_localtime=YES
+          xferlog_enable=YES
+          connect_from_port_20=YES
+
+          chroot_local_user=YES
+          allow_writeable_chroot=YES
+
+          pasv_enable=YES
+          pasv_min_port=40000
+          pasv_max_port=50000
+
+          user_sub_token=$USER
+          local_root=/home/$USER/ftp
+
+          pam_service_name=vsftpd
+    
+    - name: Ensure FTP root directory exists
+      file:
+        path: "{{ ftp_root }}"
+        state: directory
+        owner: "{{ ftp_user }}"
+        group: "{{ ftp_user }}"
+        mode: '0550'
+
+    - name: Ensure FTP upload directory exists
+      file:
+        path: "{{ ftp_upload }}"
+        state: directory
+        owner: "{{ ftp_user }}"
+        group: "{{ ftp_user }}"
+        mode: '0750'
+    
+    - name: Restart vsftpd service
+      systemd:
+        name: vsftpd
+        state: restarted
+        enabled: yes
+
+    - name: Allow FTP ports via UFW
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "20"
+        - "21"
+        - "40000:50000"
+      when: ansible_facts['distribution'] == "Ubuntu"
+
+    - name: Install vsftpd package for RedHat-based systems
+      ansible.builtin.dnf:
+        name: vsftpd
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Deploy secure vsftpd configuration
+      copy:
+        dest: /etc/vsftpd/vsftpd.conf
+        content: |
+          anonymous_enable=NO
+          local_enable=YES
+          write_enable=YES
+          local_umask=022
+
+          dirmessage_enable=YES
+          xferlog_enable=YES
+          connect_from_port_20=YES
+
+          chroot_local_user=YES
+          allow_writeable_chroot=YES
+
+          listen=YES
+          listen_ipv6=NO
+
+          pasv_enable=YES
+          pasv_min_port=40000
+          pasv_max_port=50000
+
+          pam_service_name=vsftpd
+          user_sub_token=$USER
+          local_root=/home/$USER/ftp
+
+    - name: Create FTP root directory
+      file:
+        path: "{{ ftp_root }}"
+        state: directory
+        owner: "{{ ftp_user }}"
+        group: "{{ ftp_user }}"
+        mode: "0550"
+
+    - name: Create FTP upload directory
+      file:
+        path: "{{ ftp_upload }}"
+        state: directory
+        owner: "{{ ftp_user }}"
+        group: "{{ ftp_user }}"
+        mode: "0750"
+
+    - name: Allow FTP service in firewalld
+      firewalld:
+        service: ftp
+        permanent: yes
+        state: enabled
+      notify: reload firewalld
+
+    - name: Allow passive FTP range in firewalld
+      firewalld:
+        port: "{{ item }}/tcp"
+        permanent: yes
+        state: enabled
+      loop: "{{ range(40000, 50001) | list }}"
+      notify: reload firewalld
+        
+    - name: Allow passive ports (40000–50000) efficiently
+      firewalld:
+        port: 40000-50000/tcp
+        permanent: yes
+        state: enabled
+      notify: reload firewalld
+
+    - name: Set SELinux booleans for FTP write access
+      seboolean:
+        name: ftpd_full_access
+        state: yes
+        persistent: yes
+
+    - name: Set SELinux ftpd to allow home directory access
+      seboolean:
+        name: ftp_home_dir
+        state: yes
+        persistent: yes
+
+    - name: Restart vsftpd
+      systemd:
+        name: vsftpd
+        state: restarted
+        enabled: yes
+
+    handlers:
+    - name: reload firewalld
+      service:
+        name: firewalld
+        state: reloaded
