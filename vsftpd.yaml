@@ -75,7 +75,7 @@
         enabled: yes
 
     - name: Allow FTP ports via UFW
-      ufw:
+      ansible.builtin.ufw:
         rule: allow
         port: "{{ item }}"
         proto: tcp
@@ -173,5 +173,6 @@
         name: vsftpd
         state: restarted
         enabled: yes
+
 
 
