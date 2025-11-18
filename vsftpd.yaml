@@ -12,10 +12,6 @@
   tasks:
     - name: Gather facts
       ansible.builtin.setup:
-      
-    - name: Update apt cache
-      ansible.builtin.apt:
-        update_cache: yes
 
     - name: Install vsftpd package for Ubuntu-based systems
       ansible.builtin.apt:
@@ -162,6 +158,7 @@
         name: vsftpd
         state: restarted
         enabled: yes
+
 
 
 
