@@ -101,6 +101,11 @@
         name: vsftpd
         state: restarted
         enabled: yes
+handlers:
+    - name: reload firewalld
+      service:
+        name: firewalld
+        state: reloaded
 
 
 
