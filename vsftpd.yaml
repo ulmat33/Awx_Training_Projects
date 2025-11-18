@@ -73,18 +73,7 @@
         name: vsftpd
         state: restarted
         enabled: yes
-
-    - name: Allow FTP ports via UFW
-      ansible.builtin.ufw:
-        rule: allow
-        port: "{{ item }}"
-        proto: tcp
-      loop:
-        - "20"
-        - "21"
-        - "40000:50000"
-      when: ansible_facts['distribution'] == "Ubuntu"
-
+        
     - name: Install vsftpd package for RedHat-based systems
       ansible.builtin.dnf:
         name: vsftpd
@@ -173,6 +162,7 @@
         name: vsftpd
         state: restarted
         enabled: yes
+
 
 
 
