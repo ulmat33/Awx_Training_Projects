@@ -12,7 +12,79 @@
   tasks:
     - name: Gather facts
       ansible.builtin.setup:
-        
+      
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: yes
+
+    - name: Install vsftpd package for Debian-based systems
+      ansible.builtin.apt:
+        name: vsftpd
+        state: present
+      when: ansible_os_family == "Debian"
+      
+    - name: Deploy secure vsftpd configuration
+      copy:
+        dest: /etc/vsftpd.conf
+        content: |
+          listen=YES
+          listen_ipv6=NO
+
+          anonymous_enable=NO
+          local_enable=YES
+          write_enable=YES
+          local_umask=022
+
+          dirmessage_enable=YES
+          use_localtime=YES
+          xferlog_enable=YES
+          connect_from_port_20=YES
+
+          chroot_local_user=YES
+          allow_writeable_chroot=YES
+
+          pasv_enable=YES
+          pasv_min_port=40000
+          pasv_max_port=50000
+
+          user_sub_token=$USER
+          local_root=/home/$USER/ftp
+
+          pam_service_name=vsftpd
+    
+    - name: Ensure FTP root directory exists
+      file:
+        path: "{{ ftp_root }}"
+        state: directory
+        owner: "{{ ftp_user }}"
+        group: "{{ ftp_user }}"
+        mode: '0550'
+
+    - name: Ensure FTP upload directory exists
+      file:
+        path: "{{ ftp_upload }}"
+        state: directory
+        owner: "{{ ftp_user }}"
+        group: "{{ ftp_user }}"
+        mode: '0750'
+    
+    - name: Restart vsftpd service
+      systemd:
+        name: vsftpd
+        state: restarted
+        enabled: yes
+
+    - name: Allow FTP ports via 
+      ufw:
+        rule: allow
+        port: "{{ item }}"
+        proto: tcp
+      loop:
+        - "20"
+        - "21"
+        - "40000:50000"
+      when: ansible_facts['distribution'] == "Ubuntu"
+
     - name: Install vsftpd package for RedHat-based systems
       ansible.builtin.yum:
         name: vsftpd
@@ -101,14 +173,12 @@
         name: vsftpd
         state: restarted
         enabled: yes
+        
 - handlers:
     - name: reload firewalld
       service:
         name: firewalld
         state: reloaded
-
-
-
 
 
 
